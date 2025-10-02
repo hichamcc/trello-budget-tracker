@@ -73,7 +73,7 @@ window.TrelloPowerUp.initialize({
         return t.popup({
           title: 'Card Budget',
           url: './views/card-budget.html',
-          height: 320
+          height: 380
         });
       }
     }];
