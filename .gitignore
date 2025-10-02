@@ -1,0 +1,5 @@
+node_modules/
+claud.md
+.DS_Store
+*.log
+.env

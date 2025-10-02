@@ -1,0 +1,200 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <link rel="stylesheet" href="../css/styles.css">
+</head>
+<body>
+  <div class="popup-container">
+    <div class="dashboard-grid">
+      <div class="stat-card">
+        <div class="stat-value" id="total-allocated">$0</div>
+        <div class="stat-label">Total Allocated</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-value" id="total-spent">$0</div>
+        <div class="stat-label">Total Spent</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-value" id="total-remaining">$0</div>
+        <div class="stat-label">Remaining</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-value" id="card-count">0</div>
+        <div class="stat-label">Cards Tracked</div>
+      </div>
+    </div>
+
+    <div class="progress-bar" style="height: 12px;">
+      <div class="progress-fill" id="progress" style="width: 0%"></div>
+    </div>
+    <div style="text-align: center; margin-top: 4px; font-size: 12px; color: #5e6c84;">
+      <span id="percentage">0%</span> of budget used
+    </div>
+
+    <div style="margin-top: 16px;">
+      <label style="font-weight: 600; margin-bottom: 8px; display: block;">All Cards</label>
+      <div class="card-list" id="card-list" style="max-height: 120px;">
+        <div style="text-align: center; padding: 16px; color: #5e6c84;">
+          No cards with budgets
+        </div>
+      </div>
+    </div>
+
+    <div class="list-breakdown" id="list-breakdown">
+      <label style="font-weight: 600; margin-bottom: 8px; display: block;">By List</label>
+      <div id="list-stats"></div>
+    </div>
+
+    <div class="button-group" style="margin-top: 16px;">
+      <button class="btn-primary" id="export">Export CSV</button>
+    </div>
+  </div>
+
+  <script src="https://p.trellocdn.com/power-up.min.js"></script>
+  <script>
+    var t = window.TrelloPowerUp.iframe();
+    var allCardBudgets = [];
+
+    // Load all board data
+    Promise.all([
+      t.cards('all'),
+      t.lists('id', 'name')
+    ]).then(function(results) {
+      var cards = results[0];
+      var lists = results[1];
+
+      var promises = cards.map(function(card) {
+        return t.get(card.id, 'shared', 'budget')
+          .then(function(budget) {
+            return { card: card, budget: budget };
+          });
+      });
+
+      return Promise.all(promises).then(function(cardBudgets) {
+        return { cardBudgets: cardBudgets, lists: lists };
+      });
+    }).then(function(data) {
+      var budgetCards = data.cardBudgets.filter(function(item) {
+        return item.budget;
+      });
+
+      allCardBudgets = budgetCards;
+
+      if (budgetCards.length === 0) {
+        return;
+      }
+
+      // Calculate totals
+      var totals = budgetCards.reduce(function(acc, item) {
+        var allocated = parseFloat(item.budget.allocated) || 0;
+        var spent = parseFloat(item.budget.spent) || 0;
+        acc.allocated += allocated;
+        acc.spent += spent;
+        return acc;
+      }, { allocated: 0, spent: 0 });
+
+      var remaining = totals.allocated - totals.spent;
+      var percentage = totals.allocated > 0 ? (totals.spent / totals.allocated) * 100 : 0;
+
+      document.getElementById('total-allocated').textContent = '$' + totals.allocated.toFixed(0);
+      document.getElementById('total-spent').textContent = '$' + totals.spent.toFixed(0);
+      document.getElementById('total-remaining').textContent = '$' + remaining.toFixed(0);
+      document.getElementById('card-count').textContent = budgetCards.length;
+      document.getElementById('percentage').textContent = percentage.toFixed(1) + '%';
+
+      var progressBar = document.getElementById('progress');
+      progressBar.style.width = Math.min(percentage, 100) + '%';
+
+      if (percentage > 100) progressBar.classList.add('status-red');
+      else if (percentage >= 80) progressBar.classList.add('status-orange');
+      else if (percentage >= 50) progressBar.classList.add('status-yellow');
+      else progressBar.classList.add('status-green');
+
+      // Display card list
+      var cardListHtml = budgetCards.map(function(item) {
+        var allocated = parseFloat(item.budget.allocated) || 0;
+        var spent = parseFloat(item.budget.spent) || 0;
+        var cardPercentage = allocated > 0 ? (spent / allocated) * 100 : 0;
+
+        var statusColor = 'status-green';
+        if (cardPercentage > 100) statusColor = 'status-red';
+        else if (cardPercentage >= 80) statusColor = 'status-orange';
+        else if (cardPercentage >= 50) statusColor = 'status-yellow';
+
+        return '<div class="card-item">' +
+          '<span class="card-name">' + item.card.name + '</span>' +
+          '<span class="card-budget">$' + spent.toFixed(0) + '/$' + allocated.toFixed(0) + '</span>' +
+          '<span class="status-dot ' + statusColor + '"></span>' +
+          '</div>';
+      }).join('');
+
+      document.getElementById('card-list').innerHTML = cardListHtml;
+
+      // Group by list
+      var listTotals = {};
+      budgetCards.forEach(function(item) {
+        var listId = item.card.idList;
+        if (!listTotals[listId]) {
+          var list = data.lists.find(function(l) { return l.id === listId; });
+          listTotals[listId] = {
+            name: list ? list.name : 'Unknown',
+            allocated: 0,
+            spent: 0,
+            count: 0
+          };
+        }
+        listTotals[listId].allocated += parseFloat(item.budget.allocated) || 0;
+        listTotals[listId].spent += parseFloat(item.budget.spent) || 0;
+        listTotals[listId].count += 1;
+      });
+
+      var listStatsHtml = Object.values(listTotals).map(function(list) {
+        var percentage = list.allocated > 0 ? (list.spent / list.allocated) * 100 : 0;
+        return '<div class="list-item">' +
+          '<div class="list-name">' + list.name + '</div>' +
+          '<div class="list-stats">$' + list.spent.toFixed(0) + '/$' + list.allocated.toFixed(0) +
+          ' (' + percentage.toFixed(1) + '%) • ' + list.count + ' cards</div>' +
+          '</div>';
+      }).join('');
+
+      document.getElementById('list-stats').innerHTML = listStatsHtml;
+    });
+
+    // Export CSV
+    document.getElementById('export').addEventListener('click', function() {
+      if (allCardBudgets.length === 0) {
+        alert('No budget data to export');
+        return;
+      }
+
+      var csv = 'Card Name,Allocated,Spent,Remaining,Percentage,Notes,Last Updated\n';
+
+      allCardBudgets.forEach(function(item) {
+        var allocated = parseFloat(item.budget.allocated) || 0;
+        var spent = parseFloat(item.budget.spent) || 0;
+        var remaining = allocated - spent;
+        var percentage = allocated > 0 ? (spent / allocated) * 100 : 0;
+        var notes = (item.budget.notes || '').replace(/"/g, '""');
+        var lastUpdated = item.budget.lastUpdated || '';
+
+        csv += '"' + item.card.name + '",' +
+          allocated.toFixed(2) + ',' +
+          spent.toFixed(2) + ',' +
+          remaining.toFixed(2) + ',' +
+          percentage.toFixed(2) + ',' +
+          '"' + notes + '",' +
+          lastUpdated + '\n';
+      });
+
+      var blob = new Blob([csv], { type: 'text/csv' });
+      var url = window.URL.createObjectURL(blob);
+      var a = document.createElement('a');
+      a.href = url;
+      a.download = 'board-budget-report.csv';
+      a.click();
+      window.URL.revokeObjectURL(url);
+    });
+  </script>
+</body>
+</html>

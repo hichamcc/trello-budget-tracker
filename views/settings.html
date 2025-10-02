@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <link rel="stylesheet" href="../css/styles.css">
+</head>
+<body>
+  <div class="popup-container">
+    <div class="form-group">
+      <label for="currency">Currency</label>
+      <select id="currency" style="width: 100%; padding: 8px; border: 2px solid #dfe1e6; border-radius: 3px; font-size: 14px;">
+        <option value="USD">USD ($)</option>
+        <option value="EUR">EUR (€)</option>
+        <option value="GBP">GBP (£)</option>
+      </select>
+    </div>
+
+    <div class="form-group">
+      <label for="default-allocated">Default Allocated Amount</label>
+      <input type="number" id="default-allocated" min="0" step="0.01" placeholder="0.00">
+    </div>
+
+    <div class="form-group">
+      <label style="display: flex; align-items: center; cursor: pointer;">
+        <input type="checkbox" id="email-80" style="margin-right: 8px;">
+        <span>Email alert at 80% budget</span>
+      </label>
+    </div>
+
+    <div class="form-group">
+      <label style="display: flex; align-items: center; cursor: pointer;">
+        <input type="checkbox" id="email-100" style="margin-right: 8px;">
+        <span>Email alert when budget exceeded</span>
+      </label>
+    </div>
+
+    <div class="button-group">
+      <button class="btn-secondary" id="cancel">Cancel</button>
+      <button class="btn-primary" id="save">Save Settings</button>
+    </div>
+  </div>
+
+  <script src="https://p.trellocdn.com/power-up.min.js"></script>
+  <script>
+    var t = window.TrelloPowerUp.iframe();
+
+    // Load current settings
+    t.get('board', 'shared', 'settings')
+      .then(function(settings) {
+        if (settings) {
+          document.getElementById('currency').value = settings.currency || 'USD';
+          document.getElementById('default-allocated').value = settings.defaultAllocated || '';
+          document.getElementById('email-80').checked = settings.emailAt80 || false;
+          document.getElementById('email-100').checked = settings.emailAt100 || false;
+        }
+      });
+
+    // Save settings
+    document.getElementById('save').addEventListener('click', function() {
+      var settings = {
+        currency: document.getElementById('currency').value,
+        defaultAllocated: parseFloat(document.getElementById('default-allocated').value) || 0,
+        emailAt80: document.getElementById('email-80').checked,
+        emailAt100: document.getElementById('email-100').checked
+      };
+
+      t.set('board', 'shared', 'settings', settings)
+        .then(function() {
+          t.closePopup();
+        });
+    });
+
+    // Cancel
+    document.getElementById('cancel').addEventListener('click', function() {
+      t.closePopup();
+    });
+  </script>
+</body>
+</html>

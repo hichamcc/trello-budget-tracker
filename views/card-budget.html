@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <link rel="stylesheet" href="../css/styles.css">
+</head>
+<body>
+  <div class="popup-container">
+    <div class="form-group">
+      <label for="allocated">Allocated Amount ($)</label>
+      <input type="number" id="allocated" min="0" step="0.01" placeholder="0.00">
+    </div>
+
+    <div class="form-group">
+      <label for="spent">Spent Amount ($)</label>
+      <input type="number" id="spent" min="0" step="0.01" placeholder="0.00">
+    </div>
+
+    <div class="form-group">
+      <label for="notes">Notes</label>
+      <textarea id="notes" placeholder="Budget notes or description..."></textarea>
+    </div>
+
+    <div class="budget-summary">
+      <div class="budget-row">
+        <span class="budget-label">Remaining:</span>
+        <span class="budget-value" id="remaining">$0.00</span>
+      </div>
+      <div class="progress-bar">
+        <div class="progress-fill" id="progress" style="width: 0%"></div>
+      </div>
+    </div>
+
+    <div class="button-group">
+      <button class="btn-secondary" id="cancel">Cancel</button>
+      <button class="btn-primary" id="save">Save</button>
+    </div>
+  </div>
+
+  <script src="https://p.trellocdn.com/power-up.min.js"></script>
+  <script>
+    var t = window.TrelloPowerUp.iframe();
+    var allocatedInput = document.getElementById('allocated');
+    var spentInput = document.getElementById('spent');
+    var notesInput = document.getElementById('notes');
+    var remainingSpan = document.getElementById('remaining');
+    var progressBar = document.getElementById('progress');
+
+    // Load existing budget data
+    t.card('id')
+      .get('id')
+      .then(function(cardId) {
+        return t.get(cardId, 'shared', 'budget');
+      })
+      .then(function(budget) {
+        if (budget) {
+          allocatedInput.value = budget.allocated || '';
+          spentInput.value = budget.spent || '';
+          notesInput.value = budget.notes || '';
+          updateSummary();
+        }
+      });
+
+    // Update summary on input change
+    function updateSummary() {
+      var allocated = parseFloat(allocatedInput.value) || 0;
+      var spent = parseFloat(spentInput.value) || 0;
+      var remaining = allocated - spent;
+      var percentage = allocated > 0 ? (spent / allocated) * 100 : 0;
+
+      remainingSpan.textContent = '$' + remaining.toFixed(2);
+      progressBar.style.width = Math.min(percentage, 100) + '%';
+
+      // Update progress bar color
+      progressBar.className = 'progress-fill';
+      if (percentage > 100) progressBar.classList.add('status-red');
+      else if (percentage >= 80) progressBar.classList.add('status-orange');
+      else if (percentage >= 50) progressBar.classList.add('status-yellow');
+      else progressBar.classList.add('status-green');
+    }
+
+    allocatedInput.addEventListener('input', updateSummary);
+    spentInput.addEventListener('input', updateSummary);
+
+    // Save button
+    document.getElementById('save').addEventListener('click', function() {
+      var budget = {
+        allocated: parseFloat(allocatedInput.value) || 0,
+        spent: parseFloat(spentInput.value) || 0,
+        notes: notesInput.value,
+        lastUpdated: new Date().toISOString()
+      };
+
+      t.card('id')
+        .get('id')
+        .then(function(cardId) {
+          return t.set(cardId, 'shared', 'budget', budget);
+        })
+        .then(function() {
+          t.closePopup();
+        });
+    });
+
+    // Cancel button
+    document.getElementById('cancel').addEventListener('click', function() {
+      t.closePopup();
+    });
+  </script>
+</body>
+</html>

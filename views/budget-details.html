@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <link rel="stylesheet" href="../css/styles.css">
+</head>
+<body>
+  <div class="popup-container">
+    <div class="budget-summary">
+      <div class="budget-row">
+        <span class="budget-label">Allocated:</span>
+        <span class="budget-value" id="allocated">$0.00</span>
+      </div>
+      <div class="budget-row">
+        <span class="budget-label">Spent:</span>
+        <span class="budget-value" id="spent">$0.00</span>
+      </div>
+      <div class="budget-row">
+        <span class="budget-label">Remaining:</span>
+        <span class="budget-value" id="remaining">$0.00</span>
+      </div>
+      <div class="progress-bar">
+        <div class="progress-fill" id="progress" style="width: 0%"></div>
+      </div>
+      <div class="budget-row" style="margin-top: 8px;">
+        <span class="budget-label">Percentage Used:</span>
+        <span class="budget-value" id="percentage">0%</span>
+      </div>
+    </div>
+
+    <div class="form-group" id="notes-section" style="display: none;">
+      <label>Notes</label>
+      <div id="notes-text" style="padding: 8px; background: var(--neutral); border-radius: 3px; font-size: 12px;"></div>
+    </div>
+
+    <div class="form-group">
+      <label style="font-size: 10px; color: #8c8c8c;">Last Updated</label>
+      <div id="last-updated" style="font-size: 11px; color: #5e6c84;"></div>
+    </div>
+
+    <div class="button-group">
+      <button class="btn-primary" id="edit">Edit Budget</button>
+    </div>
+  </div>
+
+  <script src="https://p.trellocdn.com/power-up.min.js"></script>
+  <script>
+    var t = window.TrelloPowerUp.iframe();
+
+    // Load budget data
+    t.card('id')
+      .get('id')
+      .then(function(cardId) {
+        return t.get(cardId, 'shared', 'budget');
+      })
+      .then(function(budget) {
+        if (budget) {
+          var allocated = parseFloat(budget.allocated) || 0;
+          var spent = parseFloat(budget.spent) || 0;
+          var remaining = allocated - spent;
+          var percentage = allocated > 0 ? (spent / allocated) * 100 : 0;
+
+          document.getElementById('allocated').textContent = '$' + allocated.toFixed(2);
+          document.getElementById('spent').textContent = '$' + spent.toFixed(2);
+          document.getElementById('remaining').textContent = '$' + remaining.toFixed(2);
+          document.getElementById('percentage').textContent = percentage.toFixed(1) + '%';
+
+          var progressBar = document.getElementById('progress');
+          progressBar.style.width = Math.min(percentage, 100) + '%';
+
+          // Update progress bar color
+          if (percentage > 100) progressBar.classList.add('status-red');
+          else if (percentage >= 80) progressBar.classList.add('status-orange');
+          else if (percentage >= 50) progressBar.classList.add('status-yellow');
+          else progressBar.classList.add('status-green');
+
+          // Show notes if present
+          if (budget.notes) {
+            document.getElementById('notes-section').style.display = 'block';
+            document.getElementById('notes-text').textContent = budget.notes;
+          }
+
+          // Show last updated
+          if (budget.lastUpdated) {
+            var date = new Date(budget.lastUpdated);
+            document.getElementById('last-updated').textContent = date.toLocaleString();
+          }
+        }
+      });
+
+    // Edit button
+    document.getElementById('edit').addEventListener('click', function() {
+      t.popup({
+        title: 'Edit Card Budget',
+        url: '../views/card-budget.html',
+        height: 250
+      });
+    });
+  </script>
+</body>
+</html>

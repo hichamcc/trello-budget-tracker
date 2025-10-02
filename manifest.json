@@ -1,0 +1,21 @@
+{
+  "name": "Budget Tracker",
+  "details": "Track budgets at card, list, and board levels with visual indicators",
+  "icon": {
+    "url": "./images/icon.png"
+  },
+  "author": "Budget Tracker Team",
+  "capabilities": [
+    "card-badges",
+    "card-buttons",
+    "card-detail-badges",
+    "list-actions",
+    "board-buttons",
+    "show-settings"
+  ],
+  "connectors": {
+    "iframe": {
+      "url": "./index.html"
+    }
+  }
+}

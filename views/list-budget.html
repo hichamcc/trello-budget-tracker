@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <link rel="stylesheet" href="../css/styles.css">
+</head>
+<body>
+  <div class="popup-container">
+    <div class="budget-summary">
+      <div class="budget-row">
+        <span class="budget-label">Total Allocated:</span>
+        <span class="budget-value" id="total-allocated">$0.00</span>
+      </div>
+      <div class="budget-row">
+        <span class="budget-label">Total Spent:</span>
+        <span class="budget-value" id="total-spent">$0.00</span>
+      </div>
+      <div class="budget-row">
+        <span class="budget-label">Cards with Budgets:</span>
+        <span class="budget-value" id="card-count">0</span>
+      </div>
+      <div class="progress-bar">
+        <div class="progress-fill" id="progress" style="width: 0%"></div>
+      </div>
+      <div class="budget-row" style="margin-top: 8px;">
+        <span class="budget-label">Percentage Used:</span>
+        <span class="budget-value" id="percentage">0%</span>
+      </div>
+    </div>
+
+    <div style="margin-top: 16px;">
+      <label style="font-weight: 600; margin-bottom: 8px; display: block;">Cards</label>
+      <div class="card-list" id="card-list">
+        <div style="text-align: center; padding: 16px; color: #5e6c84;">
+          No cards with budgets in this list
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="https://p.trellocdn.com/power-up.min.js"></script>
+  <script>
+    var t = window.TrelloPowerUp.iframe();
+
+    // Get list context
+    t.list('id')
+      .then(function(list) {
+        return t.cards('all');
+      })
+      .then(function(cards) {
+        return t.list('id').then(function(list) {
+          var cardsInList = cards.filter(function(card) {
+            return card.idList === list.id;
+          });
+
+          var promises = cardsInList.map(function(card) {
+            return t.get(card.id, 'shared', 'budget')
+              .then(function(budget) {
+                return { card: card, budget: budget };
+              });
+          });
+
+          return Promise.all(promises);
+        });
+      })
+      .then(function(cardBudgets) {
+        var budgetCards = cardBudgets.filter(function(item) {
+          return item.budget;
+        });
+
+        if (budgetCards.length === 0) {
+          return;
+        }
+
+        var totals = budgetCards.reduce(function(acc, item) {
+          var allocated = parseFloat(item.budget.allocated) || 0;
+          var spent = parseFloat(item.budget.spent) || 0;
+          acc.allocated += allocated;
+          acc.spent += spent;
+          return acc;
+        }, { allocated: 0, spent: 0 });
+
+        var percentage = totals.allocated > 0 ? (totals.spent / totals.allocated) * 100 : 0;
+
+        document.getElementById('total-allocated').textContent = '$' + totals.allocated.toFixed(2);
+        document.getElementById('total-spent').textContent = '$' + totals.spent.toFixed(2);
+        document.getElementById('card-count').textContent = budgetCards.length;
+        document.getElementById('percentage').textContent = percentage.toFixed(1) + '%';
+
+        var progressBar = document.getElementById('progress');
+        progressBar.style.width = Math.min(percentage, 100) + '%';
+
+        if (percentage > 100) progressBar.classList.add('status-red');
+        else if (percentage >= 80) progressBar.classList.add('status-orange');
+        else if (percentage >= 50) progressBar.classList.add('status-yellow');
+        else progressBar.classList.add('status-green');
+
+        // Display card list
+        var cardListHtml = budgetCards.map(function(item) {
+          var allocated = parseFloat(item.budget.allocated) || 0;
+          var spent = parseFloat(item.budget.spent) || 0;
+          var cardPercentage = allocated > 0 ? (spent / allocated) * 100 : 0;
+
+          var statusColor = 'status-green';
+          if (cardPercentage > 100) statusColor = 'status-red';
+          else if (cardPercentage >= 80) statusColor = 'status-orange';
+          else if (cardPercentage >= 50) statusColor = 'status-yellow';
+
+          return '<div class="card-item">' +
+            '<span class="card-name">' + item.card.name + '</span>' +
+            '<span class="card-budget">$' + spent.toFixed(0) + '/$' + allocated.toFixed(0) + '</span>' +
+            '<span class="status-dot ' + statusColor + '"></span>' +
+            '</div>';
+        }).join('');
+
+        document.getElementById('card-list').innerHTML = cardListHtml;
+      });
+  </script>
+</body>
+</html>
